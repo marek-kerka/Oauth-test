@@ -35,13 +35,15 @@ jobs:
       run: |
         cd auth-service
         pip install -r requirements.txt
-        pip install pytest pytest-asyncio httpx
 
     - name: Install LLM Service dependencies
       run: |
         cd llm-service
         pip install -r requirements.txt
-        pip install pytest pytest-asyncio httpx
+
+    - name: Install Test dependencies
+      run: |
+        pip install -r tests/requirements.txt
 
     - name: Start Auth Service
       run: |
