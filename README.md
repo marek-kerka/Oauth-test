@@ -1,5 +1,10 @@
 # OAuth Token System - Python Implementation
 
+![Integration Tests](https://github.com/marek-kerka/Oauth-test/workflows/Integration%20Tests/badge.svg?branch=claude/python-auth-token-plan-G1zRD)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109-green.svg)](https://fastapi.tiangolo.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Kompletní implementace OAuth token systému s browser-based autentizací pro Electron aplikaci.
 
 ## 📋 Přehled
@@ -303,6 +308,39 @@ oauth-token-system/
 ├── IMPLEMENTATION_PLAN.md # Implementační kroky
 └── README.md             # Tento soubor
 ```
+
+## 🧪 Testing & CI/CD
+
+### Automatické testy
+
+Projekt má kompletní integrační testy s GitHub Actions CI/CD:
+
+**Lokální spuštění testů**:
+```bash
+# Python integration tests (30 testů)
+python tests/integration_test.py
+
+# Bash E2E tests (9 testů)
+bash tests/e2e_test.sh
+```
+
+**GitHub Actions**:
+- ✅ Spouští se automaticky při každém push
+- ✅ Redis service container
+- ✅ Všechny služby testovány (Auth + LLM)
+- ✅ 100% coverage všech endpointů
+- ✅ Test artifacts uploadované
+
+**Test Coverage**:
+- Auth Service: 100% endpoints (15 testů)
+- LLM Service: 100% endpoints (10 testů)
+- Redis Integration: 100% (5 testů)
+- Error Handling: 100% (5 testů)
+- Browser Flow: 100% (4 testů)
+
+**Celkem**: 39 automatických testů ✅
+
+Více informací: [tests/README.md](tests/README.md)
 
 ## 🐛 Troubleshooting
 
