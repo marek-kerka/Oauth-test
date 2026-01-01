@@ -1,0 +1,157 @@
+{
+  "total": 30,
+  "passed": 30,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Auth Service health check",
+      "status": "passed",
+      "message": "Status: 200"
+    },
+    {
+      "name": "LLM Service health check",
+      "status": "passed",
+      "message": "Status: 200"
+    },
+    {
+      "name": "POST /auth/token returns 200",
+      "status": "passed",
+      "message": "Status: 200"
+    },
+    {
+      "name": "Token response has access_token",
+      "status": "passed",
+      "message": "Missing access_token"
+    },
+    {
+      "name": "Token response has refresh_token",
+      "status": "passed",
+      "message": "Missing refresh_token"
+    },
+    {
+      "name": "Token type is Bearer",
+      "status": "passed",
+      "message": "Type: Bearer"
+    },
+    {
+      "name": "Token has expires_in",
+      "status": "passed",
+      "message": "Missing expires_in"
+    },
+    {
+      "name": "POST /llm/chat with valid token returns 200",
+      "status": "passed",
+      "message": "Status: 200"
+    },
+    {
+      "name": "LLM response has 'response' field",
+      "status": "passed",
+      "message": "Missing response field"
+    },
+    {
+      "name": "LLM response has 'conversation_id'",
+      "status": "passed",
+      "message": "Missing conversation_id"
+    },
+    {
+      "name": "LLM response has 'user_email'",
+      "status": "passed",
+      "message": "Email: integration-test@example.com"
+    },
+    {
+      "name": "Conversation ID preserved across requests",
+      "status": "passed",
+      "message": "Expected: 36ad15b1-c5b1-4046-aa86-3d72dbfba1fa, Got: 36ad15b1-c5b1-4046-aa86-3d72dbfba1fa"
+    },
+    {
+      "name": "Invalid token returns 401",
+      "status": "passed",
+      "message": "Status: 401"
+    },
+    {
+      "name": "Invalid token error message",
+      "status": "passed",
+      "message": "Error: invalid_token"
+    },
+    {
+      "name": "POST /auth/refresh returns 200",
+      "status": "passed",
+      "message": "Status: 200"
+    },
+    {
+      "name": "Refresh returns new access_token",
+      "status": "passed",
+      "message": "Missing access_token"
+    },
+    {
+      "name": "Refreshed token works in LLM API",
+      "status": "passed",
+      "message": "Status: 200"
+    },
+    {
+      "name": "POST /auth/token returns 200",
+      "status": "passed",
+      "message": "Status: 200"
+    },
+    {
+      "name": "Token response has access_token",
+      "status": "passed",
+      "message": "Missing access_token"
+    },
+    {
+      "name": "Token response has refresh_token",
+      "status": "passed",
+      "message": "Missing refresh_token"
+    },
+    {
+      "name": "Token type is Bearer",
+      "status": "passed",
+      "message": "Type: Bearer"
+    },
+    {
+      "name": "Token has expires_in",
+      "status": "passed",
+      "message": "Missing expires_in"
+    },
+    {
+      "name": "POST /auth/revoke returns 200",
+      "status": "passed",
+      "message": "Status: 200"
+    },
+    {
+      "name": "Revoke status is 'revoked'",
+      "status": "passed",
+      "message": "Status: revoked"
+    },
+    {
+      "name": "Revoked token cannot be refreshed",
+      "status": "passed",
+      "message": "Status: 401"
+    },
+    {
+      "name": "GET /auth/login returns 200",
+      "status": "passed",
+      "message": "Status: 200"
+    },
+    {
+      "name": "Browser login returns HTML",
+      "status": "passed",
+      "message": "Not HTML response"
+    },
+    {
+      "name": "HTML contains myapp:// callback URL",
+      "status": "passed",
+      "message": "Missing callback URL"
+    },
+    {
+      "name": "Callback URL contains access_token",
+      "status": "passed",
+      "message": "Missing access_token parameter"
+    },
+    {
+      "name": "Callback URL contains refresh_token",
+      "status": "passed",
+      "message": "Missing refresh_token parameter"
+    }
+  ]
+}
