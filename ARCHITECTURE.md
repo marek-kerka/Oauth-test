@@ -23,6 +23,11 @@ Systém se skládá ze 3 hlavních komponent:
 
 **Endpointy**:
 ```
+GET /auth/login
+  Headers: X-User-Email: user@example.com (od proxy)
+  Response: HTML stránka s auto-redirect na myapp://auth/callback?access_token=...&refresh_token=...
+  Použití: Otevře se v systémovém prohlížeči, kde uživatel má aktivní Google session
+
 POST /auth/token
   Headers: X-User-Email: user@example.com
   Response: {
@@ -86,15 +91,48 @@ GET /llm/health
 
 ### 3. Electron Client
 
-**Token Management Flow**:
-```javascript
-1. App start → Check if refresh_token exists in secure storage
-2. If yes → Call /auth/refresh
-3. If no → Redirect to Auth Service (proxy protected URL)
-4. Store access_token in memory, refresh_token in encrypted local storage
-5. On API call → Use access_token
-6. On 401 token_expired → Auto refresh → Retry original request
-7. On refresh fail → Redirect to auth
+**Technologie**: Electron + Custom URL Scheme (myapp://)
+
+**Token Management Flow (Browser-based)**:
+```
+1. App start → Check if refresh_token exists in electron-store
+2. If yes → Call /auth/refresh → Get new access_token
+3. If no → Open system browser:
+   shell.openExternal('https://your-auth-service.com/auth/login')
+
+4. User už je přihlášený v Google → proxy pustí request
+5. Auth Service vydá tokeny → Redirect na:
+   myapp://auth/callback?access_token=...&refresh_token=...
+
+6. Electron zachytí custom URL scheme callback:
+   app.on('open-url') nebo app.on('second-instance')
+
+7. Store tokens:
+   - access_token → V paměti (global variable)
+   - refresh_token → electron-store s encryption
+
+8. On API call → Use access_token
+9. On 401 token_expired → Auto refresh → Retry original request
+10. On refresh fail → Znovu otevřít browser pro auth
+```
+
+**Výhody browser-based flow**:
+- ✅ Využívá existing Google session (žádné duplikátní přihlášení)
+- ✅ Bezpečné - tokeny jdou přes registered custom URL scheme
+- ✅ Native UX - uživatel vidí známý Google login
+- ✅ Žádný embedded browser - jednodušší implementace
+
+**Custom URL Scheme Setup**:
+```json
+// package.json
+{
+  "build": {
+    "protocols": [{
+      "name": "MyApp Auth",
+      "schemes": ["myapp"]
+    }]
+  }
+}
 ```
 
 ## Implementační Detaily
@@ -230,6 +268,272 @@ uvicorn app.main:app --reload --port 8001
 ### Production:
 ```bash
 docker-compose up -d
+```
+
+## Browser-Based Authentication - Implementace
+
+### Auth Service - Browser Login Endpoint
+
+```python
+from fastapi import FastAPI, Request, Header, HTTPException
+from fastapi.responses import HTMLResponse
+
+@app.get("/auth/login", response_class=HTMLResponse)
+async def browser_login(
+    request: Request,
+    user_email: str = Header(None, alias="X-User-Email")
+):
+    """
+    Endpoint pro browser-based auth flow.
+    Proxy již ověřila Google účet a předala email v hlavičce.
+    """
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Unauthorized - missing user email")
+
+    # Vygenerovat tokeny
+    access_token = create_access_token(user_email)
+    refresh_token = create_refresh_token(user_email)
+
+    # Uložit refresh token do Redis
+    await store_refresh_token(refresh_token, user_email)
+
+    # Redirect URL pro Electron app
+    callback_url = (
+        f"myapp://auth/callback"
+        f"?access_token={access_token}"
+        f"&refresh_token={refresh_token}"
+        f"&expires_in=1800"
+    )
+
+    # HTML s auto-redirect
+    return HTMLResponse(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Autorizace úspěšná</title>
+        <meta http-equiv="refresh" content="0;url={callback_url}">
+        <style>
+            body {{ font-family: system-ui; text-align: center; padding: 50px; }}
+            h1 {{ color: #4CAF50; }}
+        </style>
+    </head>
+    <body>
+        <h1>✓ Autorizace úspěšná</h1>
+        <p>Přesměrování do aplikace...</p>
+        <p><small>Toto okno můžete zavřít.</small></p>
+        <script>
+            window.location.href = '{callback_url}';
+            setTimeout(() => window.close(), 1000);
+        </script>
+    </body>
+    </html>
+    """)
+```
+
+### Electron App - Custom URL Scheme Handling
+
+```javascript
+// main.js
+const { app, shell, BrowserWindow } = require('electron');
+const Store = require('electron-store');
+
+const store = new Store({ encryptionKey: 'your-encryption-key' });
+
+// Registrovat jako handler pro myapp:// protokol
+app.setAsDefaultProtocolClient('myapp');
+
+let mainWindow;
+let accessToken = null;
+
+// Přihlášení
+function startAuth() {
+  const authUrl = 'https://your-auth-service.com/auth/login';
+  shell.openExternal(authUrl); // Otevře systémový browser
+}
+
+// Zpracování callback z browser
+function handleAuthCallback(url) {
+  console.log('Received auth callback:', url);
+
+  // Parse URL: myapp://auth/callback?access_token=xxx&refresh_token=yyy
+  const urlObj = new URL(url);
+  const params = urlObj.searchParams;
+
+  const newAccessToken = params.get('access_token');
+  const newRefreshToken = params.get('refresh_token');
+  const expiresIn = params.get('expires_in');
+
+  if (newAccessToken && newRefreshToken) {
+    // Uložit tokeny
+    accessToken = newAccessToken; // V paměti
+    store.set('refresh_token', newRefreshToken); // Encrypted storage
+
+    console.log('Tokens saved successfully');
+
+    // Notifikovat renderer process
+    if (mainWindow) {
+      mainWindow.webContents.send('auth-success', {
+        expiresIn: parseInt(expiresIn)
+      });
+    }
+  } else {
+    console.error('Invalid callback URL - missing tokens');
+  }
+}
+
+// macOS: Handle open-url event
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+
+  if (url.startsWith('myapp://auth/callback')) {
+    handleAuthCallback(url);
+  }
+});
+
+// Windows/Linux: Handle second-instance
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine) => {
+    // Najít myapp:// URL v command line argumentech
+    const url = commandLine.find(arg => arg.startsWith('myapp://'));
+
+    if (url) {
+      handleAuthCallback(url);
+    }
+
+    // Focus na window
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
+// App ready
+app.whenReady().then(() => {
+  mainWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  mainWindow.loadFile('index.html');
+
+  // Check for existing refresh token
+  const savedRefreshToken = store.get('refresh_token');
+
+  if (savedRefreshToken) {
+    // Auto-refresh access token při startu
+    refreshAccessToken(savedRefreshToken);
+  } else {
+    // Žádný refresh token - vyžaduje přihlášení
+    startAuth();
+  }
+});
+
+// Refresh access token
+async function refreshAccessToken(refreshToken) {
+  try {
+    const response = await fetch('https://your-auth-service.com/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      accessToken = data.access_token;
+      console.log('Access token refreshed');
+
+      mainWindow.webContents.send('auth-success');
+    } else {
+      // Refresh token invalid - vyžaduje znovu přihlášení
+      console.log('Refresh failed, need re-authentication');
+      store.delete('refresh_token');
+      startAuth();
+    }
+  } catch (error) {
+    console.error('Refresh error:', error);
+    startAuth();
+  }
+}
+
+// Export pro použití v API calls
+function getAccessToken() {
+  return accessToken;
+}
+
+module.exports = { getAccessToken, startAuth, refreshAccessToken };
+```
+
+### Electron App - API Client s Auto-Refresh
+
+```javascript
+// api-client.js
+const { getAccessToken, refreshAccessToken } = require('./main.js');
+const Store = require('electron-store');
+const store = new Store({ encryptionKey: 'your-encryption-key' });
+
+async function callLLMAPI(message, conversationId = null) {
+  const endpoint = 'https://your-llm-service.com/llm/chat';
+
+  return await apiCall(endpoint, {
+    method: 'POST',
+    body: JSON.stringify({
+      message: message,
+      conversation_id: conversationId
+    })
+  });
+}
+
+async function apiCall(url, options = {}, retryCount = 0) {
+  const token = getAccessToken();
+
+  if (!token) {
+    throw new Error('No access token available');
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers
+    }
+  });
+
+  // Token expiroval
+  if (response.status === 401 && retryCount === 0) {
+    const error = await response.json();
+
+    if (error.error === 'token_expired') {
+      console.log('Token expired, refreshing...');
+
+      const refreshToken = store.get('refresh_token');
+
+      if (refreshToken) {
+        // Refresh a retry
+        await refreshAccessToken(refreshToken);
+        return apiCall(url, options, retryCount + 1); // Retry
+      }
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+module.exports = { callLLMAPI };
 ```
 
 ## Error Handling Strategie
