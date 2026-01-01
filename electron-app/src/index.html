@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Chat App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>🔐 OAuth Chat App</h1>
+            <div class="auth-status">
+                <span id="status-indicator" class="status-indicator">●</span>
+                <span id="status-text">Načítání...</span>
+                <button id="logout-btn" style="display: none;">Odhlásit</button>
+            </div>
+        </header>
+
+        <!-- Auth section (shown when not authenticated) -->
+        <div id="auth-section" class="auth-section" style="display: none;">
+            <div class="auth-box">
+                <h2>Vyžaduje se přihlášení</h2>
+                <p>Pro použití chatu se prosím přihlaste.</p>
+                <button id="login-btn" class="primary-btn">Přihlásit přes Google</button>
+                <p class="note">
+                    <small>
+                        Pro testování bez proxy použijte:<br>
+                        <code>curl -H "X-User-Email: test@example.com" http://localhost:8000/auth/login</code><br>
+                        a klikněte na odkaz v HTML odpovědi.
+                    </small>
+                </p>
+            </div>
+        </div>
+
+        <!-- Chat section (shown when authenticated) -->
+        <div id="chat-section" class="chat-section" style="display: none;">
+            <!-- Messages -->
+            <div id="messages" class="messages">
+                <div class="system-message">
+                    Vítejte v chatu! Zadejte zprávu níže.
+                </div>
+            </div>
+
+            <!-- Input -->
+            <div class="input-section">
+                <input
+                    type="text"
+                    id="message-input"
+                    placeholder="Napište zprávu..."
+                    autocomplete="off"
+                />
+                <button id="send-btn">Odeslat</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
